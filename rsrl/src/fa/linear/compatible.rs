@@ -1,5 +1,5 @@
 use crate::{
-    DerefSlice,
+    DerefVec,
     fa::{
         Weights, WeightsView, WeightsViewMut, Parameterised,
         StateActionFunction, DifferentiableStateActionFunction,
@@ -140,10 +140,10 @@ where
     B: Projector,
     O: Optimiser,
 {
-    pub fn evaluate_baseline<X: DerefSlice>(&self, state: &X) -> f64 where B: Clone {
+    pub fn evaluate_baseline<X: DerefVec>(&self, state: &X) -> f64 where B: Clone {
         let wd = self.policy.weights_dim();
 
-        let f_basis = self.basis.project(state.deref_slice()).unwrap();
+        let f_basis = self.basis.project(&state.deref_vec()).unwrap();
         let f_policy = Features::from(vec![0.0; wd[0] * wd[1]]);
 
         let features = f_policy.stack(f_basis);
@@ -155,7 +155,7 @@ where
 // Q(x, u):
 impl<X, U, P, B, O> StateActionFunction<X, U> for StableCFA<P, B, O>
 where
-    X: DerefSlice,
+    X: DerefVec,
     P: DifferentiablePolicy<X, Action = U>,
     B: Projector,
     O: Optimiser,
@@ -177,7 +177,7 @@ where
 
 impl<X, U, B, P, O> DifferentiableStateActionFunction<X, U> for StableCFA<P, B, O>
 where
-    X: DerefSlice,
+    X: DerefVec,
     P: DifferentiablePolicy<X, Action = U>,
     B: Projector,
     O: Optimiser,
@@ -198,7 +198,7 @@ where
 
 impl<X, U, B, P, O> LinearStateActionFunction<X, U> for StableCFA<P, B, O>
 where
-    X: DerefSlice,
+    X: DerefVec,
     P: DifferentiablePolicy<X, Action = U>,
     B: Projector,
     O: Optimiser,
@@ -213,7 +213,7 @@ where
         let gl_policy = self.policy.grad_log(state, action);
         let gl_policy = Features::Dense(gl_policy.index_axis_move(Axis(1), 0));
 
-        gl_policy.stack(self.basis.project(state.deref_slice()).unwrap())
+        gl_policy.stack(self.basis.project(&state.deref_vec()).unwrap())
     }
 
     fn evaluate_features(&self, features: &Features, _: &U) -> f64 {
