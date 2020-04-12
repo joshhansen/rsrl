@@ -1,4 +1,4 @@
-use crate::DerefVec;
+use crate::DerefSlice;
 use crate::fa::{
     Weights, WeightsView, WeightsViewMut, Parameterised,
     StateFunction, DifferentiableStateFunction,
@@ -58,7 +58,7 @@ impl<B: Projector, O: Optimiser> LFA<B, O, VectorFunction> {
 // V(s):
 impl<X, B, O, A> StateFunction<X> for LFA<B, O, A>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     O: Optimiser,
     A: Approximator,
@@ -66,7 +66,7 @@ where
     type Output = A::Output;
 
     fn evaluate(&self, state: &X) -> A::Output {
-        let features = self.basis.project(&state.deref_vec()).unwrap();
+        let features = self.basis.project(state.deref_slice()).unwrap();
 
         self.approximator.evaluate(&features).unwrap()
     }
@@ -74,7 +74,7 @@ where
     fn update(&mut self, state: &X, error: A::Output) {
         self.approximator.update(
             &mut self.optimiser,
-            &self.basis.project(&state.deref_vec()).unwrap(),
+            &self.basis.project(state.deref_slice()).unwrap(),
             error
         ).ok();
     }
@@ -82,7 +82,7 @@ where
 
 impl<X, B, O, A> DifferentiableStateFunction<X> for LFA<B, O, A>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     O: Optimiser,
     A: ScalarApproximator,
@@ -92,14 +92,14 @@ where
     fn grad(&self, state: &X) -> LFAGradient {
         LFAGradient::from_features(
             self.weights_dim(), 0,
-            self.basis.project(&state.deref_vec()).unwrap()
+            self.basis.project(state.deref_slice()).unwrap()
         )
     }
 }
 
 impl<X, B, O, A> LinearStateFunction<X> for LFA<B, O, A>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     O: Optimiser,
     A: ScalarApproximator,
@@ -109,7 +109,7 @@ where
     }
 
     fn features(&self, state: &X) -> Features {
-        self.basis.project(&state.deref_vec()).unwrap()
+        self.basis.project(state.deref_slice()).unwrap()
     }
 
     fn evaluate_features(&self, features: &Features) -> f64 {
@@ -124,7 +124,7 @@ where
 // Q(x, u):
 impl<X, B, O, A> StateActionFunction<X, usize> for LFA<B, O, A>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     O: Optimiser,
     A: VectorApproximator,
@@ -132,13 +132,13 @@ where
     type Output = f64;
 
     fn evaluate(&self, state: &X, action: &usize) -> Self::Output {
-        let features = self.basis.project(&state.deref_vec()).unwrap();
+        let features = self.basis.project(state.deref_slice()).unwrap();
 
         self.approximator.evaluate_index(&features, *action).unwrap()
     }
 
     fn update(&mut self, state: &X, action: &usize, error: Self::Output) {
-        let features = self.basis.project(&state.deref_vec()).unwrap();
+        let features = self.basis.project(state.deref_slice()).unwrap();
 
         self.approximator.update_index(&mut self.optimiser, &features, *action, error).ok();
     }
@@ -146,7 +146,7 @@ where
 
 impl<X, B, O, A> DifferentiableStateActionFunction<X, usize> for LFA<B, O, A>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     O: Optimiser,
     A: VectorApproximator,
@@ -157,14 +157,14 @@ where
         LFAGradient::from_features(
             self.weights_dim(),
             *action,
-            self.basis.project(&state.deref_vec()).unwrap()
+            self.basis.project(state.deref_slice()).unwrap()
         )
     }
 }
 
 impl<X, B, O, A> EnumerableStateActionFunction<X> for LFA<B, O, A>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     O: Optimiser,
     A: VectorApproximator,
@@ -174,13 +174,13 @@ where
     }
 
     fn evaluate_all(&self, state: &X) -> Vec<f64> {
-        self.approximator.evaluate(&self.basis.project(&state.deref_vec()).unwrap()).unwrap()
+        self.approximator.evaluate(&self.basis.project(state.deref_slice()).unwrap()).unwrap()
     }
 
     fn update_all(&mut self, state: &X, errors: Vec<f64>) {
         self.approximator.update(
             &mut self.optimiser,
-            &self.basis.project(&state.deref_vec()).unwrap(),
+            &self.basis.project(state.deref_slice()).unwrap(),
             errors
         ).ok();
     }
@@ -188,7 +188,7 @@ where
 
 impl<X, B, O, A> LinearStateActionFunction<X, usize> for LFA<B, O, A>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     O: Optimiser,
     A: VectorApproximator,
@@ -198,7 +198,7 @@ where
     }
 
     fn features(&self, state: &X, _: &usize) -> Features {
-        self.basis.project(&state.deref_vec()).unwrap()
+        self.basis.project(state.deref_slice()).unwrap()
     }
 
     fn evaluate_features(&self, features: &Features, action: &usize) -> f64 {

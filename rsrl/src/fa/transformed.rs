@@ -1,5 +1,5 @@
 use crate::{
-    DerefVec,
+    DerefSlice,
     fa::{
         Weights, WeightsView, WeightsViewMut, Parameterised,
         StateFunction, DifferentiableStateFunction,
@@ -77,7 +77,7 @@ where
 // V(s):
 impl<X, B, A, T> StateFunction<X> for TransformedLFA<B, A, T>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     A: ScalarApproximator,
     T: transforms::Transform<A::Output>,
@@ -85,14 +85,14 @@ where
     type Output = T::Output;
 
     fn evaluate(&self, state: &X) -> T::Output {
-        self.basis.project(&state.deref_vec())
+        self.basis.project(state.deref_slice())
             .and_then(|f| self.approximator.evaluate(&f))
             .map(|v| self.transform.transform(v))
             .unwrap()
     }
 
     fn update(&mut self, state: &X, error: T::Output) {
-        let (f, df) = self.basis.project(&state.deref_vec())
+        let (f, df) = self.basis.project(state.deref_slice())
             .and_then(|f| self.approximator.evaluate(&f).map(|v| (f, v)))
             .map(|(f, v)| (f, self.transform.grad_scaled(v, error)))
             .unwrap();
@@ -103,7 +103,7 @@ where
 
 impl<X, B, A, T> DifferentiableStateFunction<X> for TransformedLFA<B, A, T>
 where
-    X: DerefVec,
+    X: DerefSlice,
     B: Projector,
     A: ScalarApproximator,
     T: transforms::Transform<A::Output, Output = f64>,
@@ -111,7 +111,7 @@ where
     type Gradient = Columnar;
 
     fn grad(&self, state: &X) -> Self::Gradient {
-        self.basis.project(&state.deref_vec())
+        self.basis.project(state.deref_slice())
             .and_then(|f| self.approximator.evaluate(&f).map(|v| (f, v)))
             .map(|(f, v)| Columnar::from_column(
                 1, 0, f.expanded().mapv(|x| self.transform.grad_scaled(v, x))
