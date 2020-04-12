@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::{
     OnlineLearner,
     control::Controller,
@@ -57,7 +59,7 @@ pub struct Evaluation<'a, C: 'a, D> {
 impl<'a, S: Space, A: Space, C, D> Evaluation<'a, C, D>
 where
     C: Controller<S::Value, A::Value>,
-    D: Domain<StateSpace = S, ActionSpace = A>,
+    D: Domain<StateSpace = S, ActionSpace = A>+fmt::Debug,
 {
     pub fn new(agent: &'a mut C, domain_factory: Box<dyn Fn() -> D>) -> Evaluation<'a, C, D> {
         Evaluation {
@@ -70,7 +72,8 @@ where
 impl<'a, S: Space, A: Space, C, D> Iterator for Evaluation<'a, C, D>
 where
     C: Controller<S::Value, A::Value>,
-    D: Domain<StateSpace = S, ActionSpace = A>,
+    D: Domain<StateSpace = S, ActionSpace = A>+fmt::Debug,
+    <A as Space>::Value : std::fmt::Debug,
 {
     type Item = Episode;
 
@@ -85,7 +88,12 @@ where
         };
 
         loop {
+            println!("{:?}", domain);
+            println!("a: {:?}", a);
+
             let t = domain.step(a);
+
+            println!("Reward: {}", t.reward);
 
             e.steps += 1;
             e.reward += t.reward;
@@ -152,10 +160,12 @@ where
 
             self.agent.handle_transition(&t);
 
-            if t.terminated() || j >= self.step_limit {
+            if t.terminated() {
                 self.agent.handle_terminal();
-
-                break
+                break;
+            } else if j >= self.step_limit {
+                self.agent.handle_terminal();
+                break;
             } else {
                 a = self.agent.sample_behaviour(&mut rng, t.to.state());
             }

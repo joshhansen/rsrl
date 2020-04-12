@@ -17,3 +17,14 @@ impl DerefSlice for Array1<f64> {
         unsafe { ::std::slice::from_raw_parts(self.as_ptr(), self.len()) }
     }
 }
+
+pub trait DerefVec {
+    fn deref_vec(&self) -> Vec<f64>;
+}
+
+impl DerefVec for Vec<f64> {
+    fn deref_vec(&self) -> Vec<f64> {
+        self.clone()
+    }
+}
+
