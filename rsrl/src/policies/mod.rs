@@ -26,7 +26,6 @@ import_all!(dirichlet);
 import_all!(gamma);
 
 import_all!(ipp);
-import_all!(shared);
 // import_all!(perturbation);
 
 #[allow(dead_code)]

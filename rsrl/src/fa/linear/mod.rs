@@ -45,5 +45,3 @@ pub trait LinearStateActionFunction<X: ?Sized, U: ?Sized>:
 
 import_all!(vanilla);
 import_all!(compatible);
-
-import_all!(shared);

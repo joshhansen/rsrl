@@ -8,8 +8,6 @@ pub mod tabular;
 pub mod transforms;
 import_all!(transformed);
 
-import_all!(shared);
-
 pub use self::linear::{Parameterised, Weights, WeightsView, WeightsViewMut};
 
 /// An interface for state value functions.
