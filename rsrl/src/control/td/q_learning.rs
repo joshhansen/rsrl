@@ -18,7 +18,7 @@ use rand::Rng;
 /// Cambridge University.
 /// - Watkins, C. J. C. H., Dayan, P. (1992). Q-learning. Machine Learning,
 /// 8:279–292.
-#[derive(Parameterised)]
+#[derive(Deserialize,Serialize,Parameterised)]
 pub struct QLearning<Q, P> {
     #[weights] pub q_func: Q,
 
