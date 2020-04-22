@@ -47,7 +47,7 @@ macro_rules! make_index {
 }
 
 /// Container class for data associated with a domain observation.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Observation<S> {
     /// Fully observed state of the environment.
     Full(S),
@@ -114,7 +114,7 @@ impl<S> Observation<S> {
 }
 
 /// Container class for data associated with a domain transition.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct Transition<S, A> {
     /// State transitioned _from_, `s`.
     // pub from: Observation<S>,
