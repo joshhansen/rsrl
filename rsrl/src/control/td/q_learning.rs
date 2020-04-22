@@ -19,17 +19,19 @@ use rand::Rng;
 /// - Watkins, C. J. C. H., Dayan, P. (1992). Q-learning. Machine Learning,
 /// 8:279–292.
 #[derive(Parameterised)]
-pub struct QLearning<Q, P> {
+pub struct QLearning<S, Q, P> {
     #[weights] pub q_func: Q,
 
     pub policy: P,
 
     pub alpha: f64,
     pub gamma: f64,
+
+    prior_state: S,
 }
 
-impl<Q, P> QLearning<Shared<Q>, P> {
-    pub fn new(q_func: Q, policy: P, alpha: f64, gamma: f64) -> Self {
+impl<S, Q, P> QLearning<S, Shared<Q>, P> {
+    pub fn new(q_func: Q, policy: P, alpha: f64, gamma: f64, initial_state: S) -> Self {
         let q_func = make_shared(q_func);
 
         QLearning {
@@ -39,18 +41,20 @@ impl<Q, P> QLearning<Shared<Q>, P> {
 
             alpha,
             gamma,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, Q, P> OnlineLearner<S, P::Action> for QLearning<Q, P>
+impl<S, Q, P> OnlineLearner<S, P::Action> for QLearning<S, Q, P>
 where
     Q: EnumerableStateActionFunction<S>,
     P: EnumerablePolicy<S>,
 {
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
-        let s = t.from.state();
-        let qsa = self.q_func.evaluate(s, &t.action);
+        // let s = t.from.state();
+        let qsa = self.q_func.evaluate(&self.prior_state, &t.action);
 
         let residual = if t.terminated() {
             t.reward - qsa
@@ -61,11 +65,13 @@ where
             t.reward + self.gamma * nqsna - qsa
         };
 
-        self.q_func.update(s, &t.action, self.alpha * residual);
+        self.q_func.update(&self.prior_state, &t.action, self.alpha * residual);
+
+        self.prior_state = t.to.owned_state();
     }
 }
 
-impl<S, Q, P> Controller<S, P::Action> for QLearning<Q, P>
+impl<S, Q, P> Controller<S, P::Action> for QLearning<S, Q, P>
 where
     Q: EnumerableStateActionFunction<S>,
     P: EnumerablePolicy<S>,
@@ -79,7 +85,7 @@ where
     }
 }
 
-impl<S, Q, P> ValuePredictor<S> for QLearning<Q, P>
+impl<S, Q, P> ValuePredictor<S> for QLearning<S, Q, P>
 where
     Q: EnumerableStateActionFunction<S, Output = f64>,
     P: Policy<S>,
@@ -87,7 +93,7 @@ where
     fn predict_v(&self, s: &S) -> f64 { self.q_func.find_max(s).1 }
 }
 
-impl<S, Q, P> ActionValuePredictor<S, <Greedy<Q> as Policy<S>>::Action> for QLearning<Q, P>
+impl<S, Q, P> ActionValuePredictor<S, <Greedy<Q> as Policy<S>>::Action> for QLearning<S, Q, P>
 where
     Q: EnumerableStateActionFunction<S, Output = f64>,
     P: Policy<S>,

@@ -8,7 +8,7 @@ use crate::{
 use rand::Rng;
 
 /// Continuous Actor-Critic Learning Automaton
-pub struct CACLA<C, PT, PB> {
+pub struct CACLA<S, C, PT, PB> {
     pub critic: C,
 
     pub target_policy: PT,
@@ -16,15 +16,18 @@ pub struct CACLA<C, PT, PB> {
 
     pub alpha: f64,
     pub gamma: f64,
+
+    prior_state: S,
 }
 
-impl<C, PT, PB> CACLA<C, PT, PB> {
+impl<S, C, PT, PB> CACLA<S, C, PT, PB> {
     pub fn new(
         critic: C,
         target_policy: PT,
         behaviour_policy: PB,
         alpha: f64,
         gamma: f64,
+        initial_state: S,
     ) -> Self {
         CACLA {
             critic,
@@ -34,18 +37,21 @@ impl<C, PT, PB> CACLA<C, PT, PB> {
 
             alpha,
             gamma,
+            
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, C, PT, PB> OnlineLearner<S, PT::Action> for CACLA<C, PT, PB>
+impl<S, C, PT, PB> OnlineLearner<S, PT::Action> for CACLA<S, C, PT, PB>
 where
     C: OnlineLearner<S, PT::Action> + ValuePredictor<S>,
     PT: DifferentiablePolicy<S, Action = f64>,
 {
     fn handle_transition(&mut self, t: &Transition<S, PT::Action>) {
-        let s = t.from.state();
-        let v = self.critic.predict_v(s);
+        // let s = t.from.state();
+        // let s = &self.prior_state;
+        let v = self.critic.predict_v(&self.prior_state);
         let target = if t.terminated() {
             t.reward
         } else {
@@ -55,10 +61,12 @@ where
         self.critic.handle_transition(t);
 
         if target > v {
-            let mpa = self.target_policy.mpa(s);
+            let mpa = self.target_policy.mpa(&self.prior_state);
 
-            self.target_policy.update(s, &t.action, self.alpha * (t.action - mpa));
+            self.target_policy.update(&self.prior_state, &t.action, self.alpha * (t.action - mpa));
         }
+
+        self.prior_state = t.to.owned_state();
     }
 
     fn handle_terminal(&mut self) {
@@ -66,7 +74,7 @@ where
     }
 }
 
-impl<S, C, PT, PB> ValuePredictor<S> for CACLA<C, PT, PB>
+impl<S, C, PT, PB> ValuePredictor<S> for CACLA<S, C, PT, PB>
 where
     C: ValuePredictor<S>,
 {
@@ -75,7 +83,7 @@ where
     }
 }
 
-impl<S, C, PT, PB> ActionValuePredictor<S, PT::Action> for CACLA<C, PT, PB>
+impl<S, C, PT, PB> ActionValuePredictor<S, PT::Action> for CACLA<S, C, PT, PB>
 where
     C: ActionValuePredictor<S, PT::Action>,
     PT: Policy<S>,
@@ -85,7 +93,7 @@ where
     }
 }
 
-impl<S, C, PT, PB> Controller<S, PT::Action> for CACLA<C, PT, PB>
+impl<S, C, PT, PB> Controller<S, PT::Action> for CACLA<S, C, PT, PB>
 where
     PT: DifferentiablePolicy<S>,
     PB: Policy<S, Action = PT::Action>,

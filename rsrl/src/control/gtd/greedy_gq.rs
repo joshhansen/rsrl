@@ -20,7 +20,7 @@ use rand::{thread_rng, Rng};
 /// approximation." Proceedings of the 27th International Conference on Machine
 /// Learning (ICML-10). 2010.
 #[derive(Parameterised)]
-pub struct GreedyGQ<Q, W, PB> {
+pub struct GreedyGQ<S, Q, W, PB> {
     #[weights] pub fa_q: Q,
     pub fa_w: W,
 
@@ -30,9 +30,11 @@ pub struct GreedyGQ<Q, W, PB> {
     pub alpha: f64,
     pub beta: f64,
     pub gamma: f64,
+
+    prior_state: S,
 }
 
-impl<Q, W, PB> GreedyGQ<Shared<Q>, W, PB> {
+impl<S, Q, W, PB> GreedyGQ<S, Shared<Q>, W, PB> {
     pub fn new(
         fa_q: Q,
         fa_w: W,
@@ -40,6 +42,7 @@ impl<Q, W, PB> GreedyGQ<Shared<Q>, W, PB> {
         alpha: f64,
         beta: f64,
         gamma: f64,
+        initial_state: S,
     ) -> Self {
         let fa_q = make_shared(fa_q);
 
@@ -53,21 +56,25 @@ impl<Q, W, PB> GreedyGQ<Shared<Q>, W, PB> {
             alpha,
             beta,
             gamma,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, Q, W, PB> OnlineLearner<S, PB::Action> for GreedyGQ<Q, W, PB>
+impl<S, Q, W, PB> OnlineLearner<S, PB::Action> for GreedyGQ<S, Q, W, PB>
 where
     Q: EnumerableStateActionFunction<S> + LinearStateActionFunction<S, usize>,
     W: StateFunction<S, Output = f64> + LinearStateFunction<S>,
     PB: EnumerablePolicy<S>,
 {
     fn handle_transition(&mut self, t: &Transition<S, PB::Action>) {
-        let s = t.from.state();
+        // let s = t.from.state();
 
-        let phi_s_w = self.fa_w.features(s);
-        let phi_s_q = self.fa_q.features(s, &t.action);
+
+
+        let phi_s_w = self.fa_w.features(&self.prior_state);
+        let phi_s_q = self.fa_q.features(&self.prior_state, &t.action);
 
         let qsa = self.fa_q.evaluate_features(&phi_s_q, &t.action);
         let estimate = self.fa_w.evaluate_features(&phi_s_w);
@@ -92,10 +99,12 @@ where
             self.fa_w.update_features(&phi_s_w, self.alpha * self.beta * (residual - estimate));
             self.fa_q.update_features(&update_q, &t.action, self.alpha);
         }
+
+        self.prior_state = t.to.owned_state();
     }
 }
 
-impl<S, Q, W, PB> ValuePredictor<S> for GreedyGQ<Q, W, PB>
+impl<S, Q, W, PB> ValuePredictor<S> for GreedyGQ<S, Q, W, PB>
 where
     Q: StateActionFunction<S, <Greedy<Q> as Policy<S>>::Action, Output = f64>,
     Greedy<Q>: Policy<S>,
@@ -105,7 +114,7 @@ where
     }
 }
 
-impl<S, Q, W, PB> ActionValuePredictor<S, <Greedy<Q> as Policy<S>>::Action> for GreedyGQ<Q, W, PB>
+impl<S, Q, W, PB> ActionValuePredictor<S, <Greedy<Q> as Policy<S>>::Action> for GreedyGQ<S, Q, W, PB>
 where
     Q: StateActionFunction<S, <Greedy<Q> as Policy<S>>::Action, Output = f64>,
     Greedy<Q>: Policy<S>,
@@ -115,7 +124,7 @@ where
     }
 }
 
-impl<S, Q, W, PB> Controller<S, PB::Action> for GreedyGQ<Q, W, PB>
+impl<S, Q, W, PB> Controller<S, PB::Action> for GreedyGQ<S, Q, W, PB>
 where
     Q: EnumerableStateActionFunction<S>,
     PB: EnumerablePolicy<S>,

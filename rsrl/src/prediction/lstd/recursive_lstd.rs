@@ -11,16 +11,18 @@ use crate::{
 use ndarray::{Array2, Axis};
 
 #[derive(Parameterised)]
-pub struct RecursiveLSTD<F> {
+pub struct RecursiveLSTD<F, S> {
     #[weights] pub fa_theta: F,
 
     pub gamma: f64,
 
     c_mat: Array2<f64>,
+
+    prior_state: S,
 }
 
-impl<F: Parameterised> RecursiveLSTD<F> {
-    pub fn new(fa_theta: F, gamma: f64) -> Self {
+impl<F: Parameterised, S> RecursiveLSTD<F, S> {
+    pub fn new(fa_theta: F, gamma: f64, initial_state: S) -> Self {
         let n_features = fa_theta.weights_dim()[0];
 
         RecursiveLSTD {
@@ -29,18 +31,22 @@ impl<F: Parameterised> RecursiveLSTD<F> {
             gamma,
 
             c_mat: Array2::eye(n_features) * 1e-5,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, A, F> OnlineLearner<S, A> for RecursiveLSTD<F>
+impl<S, A, F> OnlineLearner<S, A> for RecursiveLSTD<F, S>
 where
     F: LinearStateFunction<S, Output = f64>
 {
     fn handle_transition(&mut self, t: &Transition<S, A>) {
-        let (s, ns) = t.states();
+        // let (s, ns) = t.states();
 
-        let phi_s = self.fa_theta.features(s);
+        let ns = t.to.state();
+
+        let phi_s = self.fa_theta.features(&self.prior_state);
         let theta_s = self.fa_theta.evaluate_features(&phi_s);
 
         if t.terminated() {
@@ -89,6 +95,8 @@ where
             self.c_mat.scaled_add(-1.0 / a, &vg);
             self.fa_theta.weights_view_mut().scaled_add(residual / a, &v);
         }
+
+        self.prior_state = t.to.owned_state();
     }
 
     fn handle_terminal(&mut self) {
@@ -96,7 +104,7 @@ where
     }
 }
 
-impl<S, F: StateFunction<S>> ValuePredictor<S> for RecursiveLSTD<F>
+impl<S, F: StateFunction<S>> ValuePredictor<S> for RecursiveLSTD<F, S>
 where
     F: StateFunction<S, Output = f64>,
 {

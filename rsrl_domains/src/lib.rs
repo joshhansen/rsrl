@@ -70,6 +70,15 @@ impl<S> Observation<S> {
         }
     }
 
+    /// Helper function returning a the state value for the given observation.
+    pub fn owned_state(self) -> S {
+        use self::Observation::*;
+
+        match self {
+            Full(state) | Partial(state) | Terminal(state) => state,
+        }
+    }
+
     pub fn map<O>(&self, f: impl Fn(&S) -> O) -> Observation<O> {
         use self::Observation::*;
 

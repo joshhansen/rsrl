@@ -8,38 +8,44 @@ use crate::{
 use rand::Rng;
 
 /// Advantage actor-critic.
-pub struct A2C<C, P> {
+pub struct A2C<S, C, P> {
     pub critic: C,
     pub policy: P,
 
     pub alpha: f64,
+
+    prior_state: S,
 }
 
-impl<C, P> A2C<C, P> {
-    pub fn new(critic: C, policy: P, alpha: f64) -> Self {
+impl<S, C, P> A2C<S, C, P> {
+    pub fn new(critic: C, policy: P, alpha: f64, initial_state: S) -> Self {
         A2C {
             critic,
             policy,
 
             alpha,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, C, P> OnlineLearner<S, P::Action> for A2C<C, P>
+impl<S, C, P> OnlineLearner<S, P::Action> for A2C<S, C, P>
 where
     C: OnlineLearner<S, P::Action> + ValuePredictor<S> + ActionValuePredictor<S, P::Action>,
     P: DifferentiablePolicy<S>,
     P::Action: Clone,
 {
-    fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
+    fn handle_transition(&mut self, t: Transition<S, P::Action>) {
         self.critic.handle_transition(t);
 
-        let s = t.from.state();
-        let v = self.critic.predict_v(s);
-        let qsa = self.critic.predict_q(s, &t.action);
+        // let s = t.from.state();
+        let v = self.critic.predict_v(&self.prior_state);
+        let qsa = self.critic.predict_q(&self.prior_state, &t.action);
 
-        self.policy.update(s, &t.action, self.alpha * (qsa - v));
+        self.policy.update(&self.prior_state, &t.action, self.alpha * (qsa - v));
+
+        self.prior_state = t.to.owned_state();
     }
 
     fn handle_terminal(&mut self) {
@@ -47,7 +53,7 @@ where
     }
 }
 
-impl<S, C, P> ValuePredictor<S> for A2C<C, P>
+impl<S, C, P> ValuePredictor<S> for A2C<S, C, P>
 where
     C: ValuePredictor<S>,
 {
@@ -56,7 +62,7 @@ where
     }
 }
 
-impl<S, C, P> ActionValuePredictor<S, P::Action> for A2C<C, P>
+impl<S, C, P> ActionValuePredictor<S, P::Action> for A2C<S, C, P>
 where
     C: ActionValuePredictor<S, P::Action>,
     P: Policy<S>,
@@ -66,7 +72,7 @@ where
     }
 }
 
-impl<S, C, P> Controller<S, P::Action> for A2C<C, P>
+impl<S, C, P> Controller<S, P::Action> for A2C<S, C, P>
 where
     P: Policy<S>,
 {

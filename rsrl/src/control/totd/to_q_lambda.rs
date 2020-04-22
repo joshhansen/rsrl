@@ -24,7 +24,7 @@ use rand::{thread_rng, Rng};
 /// Sutton, R. S. (2016). True online temporal-difference learning. Journal of
 /// Machine Learning Research, 17(145), 1-40.](https://arxiv.org/pdf/1512.04087.pdf)
 #[derive(Parameterised)]
-pub struct TOQLambda<F, P, T> {
+pub struct TOQLambda<S, F, P, T> {
     #[weights] pub fa_theta: F,
 
     pub policy: P,
@@ -36,9 +36,11 @@ pub struct TOQLambda<F, P, T> {
 
     trace: T,
     q_old: f64,
+
+    prior_state: S,
 }
 
-impl<F, P, T> TOQLambda<Shared<F>, P, T> {
+impl<S, F, P, T> TOQLambda<S, Shared<F>, P, T> {
     pub fn new(
         fa_theta: F,
         policy: P,
@@ -46,6 +48,7 @@ impl<F, P, T> TOQLambda<Shared<F>, P, T> {
         alpha: f64,
         gamma: f64,
         lambda: f64,
+        initial_state: S,
     ) -> Self {
         let fa_theta = make_shared(fa_theta);
 
@@ -61,25 +64,27 @@ impl<F, P, T> TOQLambda<Shared<F>, P, T> {
 
             trace,
             q_old: 0.0,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, F, P, T> OnlineLearner<S, P::Action> for TOQLambda<F, P, T>
+impl<S, F, P, T> OnlineLearner<S, P::Action> for TOQLambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S> + LinearStateActionFunction<S, usize>,
     P: EnumerablePolicy<S>,
     T: Trace<F::Gradient>,
 {
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
-        let s = t.from.state();
-        let qsa = self.fa_theta.evaluate(s, &t.action);
+        // let s = t.from.state();
+        let qsa = self.fa_theta.evaluate(&self.prior_state, &t.action);
 
         // Update trace:
-        let grad_sa = self.fa_theta.grad(s, &t.action);
+        let grad_sa = self.fa_theta.grad(&self.prior_state, &t.action);
         let phi_sa = grad_sa.features(&t.action).unwrap();
 
-        if t.action == self.fa_theta.find_max(s).0 {
+        if t.action == self.fa_theta.find_max(&self.prior_state).0 {
             let a = self.alpha;
             let c = self.lambda * self.gamma;
             let dotted = if let Some(trace_f) = self.trace.deref().features(&t.action) {
@@ -115,10 +120,12 @@ where
             self.fa_theta.update_grad_scaled(&grad_sa, self.alpha * (self.q_old - qsa));
 
             self.q_old = nqsna;
-            if t.action != self.sample_target(&mut rng, s) {
+            if t.action != self.sample_target(&mut rng, &self.prior_state) {
                 self.trace.reset();
             }
         }
+
+        self.prior_state = t.to.owned_state();
     }
 
     fn handle_terminal(&mut self) {
@@ -126,7 +133,7 @@ where
     }
 }
 
-impl<S, F, P, T> Controller<S, P::Action> for TOQLambda<F, P, T>
+impl<S, F, P, T> Controller<S, P::Action> for TOQLambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S>,
     P: EnumerablePolicy<S>,
@@ -140,7 +147,7 @@ where
     }
 }
 
-impl<S, F, P, T> ValuePredictor<S> for TOQLambda<F, P, T>
+impl<S, F, P, T> ValuePredictor<S> for TOQLambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S, Output = f64>,
     P: EnumerablePolicy<S>,
@@ -148,7 +155,7 @@ where
     fn predict_v(&self, s: &S) -> f64 { self.predict_q(s, &self.target.mpa(s)) }
 }
 
-impl<S, F, P, T> ActionValuePredictor<S, P::Action> for TOQLambda<F, P, T>
+impl<S, F, P, T> ActionValuePredictor<S, P::Action> for TOQLambda<S, F, P, T>
 where
     F: StateActionFunction<S, P::Action, Output = f64>,
     P: Policy<S>,

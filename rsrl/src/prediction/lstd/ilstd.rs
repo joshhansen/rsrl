@@ -13,7 +13,7 @@ use ndarray::{Array1, Array2, Axis};
 
 #[allow(non_camel_case_types)]
 #[derive(Parameterised)]
-pub struct iLSTD<F> {
+pub struct iLSTD<S, F> {
     #[weights] pub fa_theta: F,
 
     pub alpha: f64,
@@ -22,10 +22,12 @@ pub struct iLSTD<F> {
 
     a: Array2<f64>,
     mu: Array1<f64>,
+
+    prior_state: S,
 }
 
-impl<F: Parameterised> iLSTD<F> {
-    pub fn new(fa_theta: F, alpha: f64, gamma: f64, n_updates: usize) -> Self {
+impl<S, F: Parameterised> iLSTD<S, F> {
+    pub fn new(fa_theta: F, alpha: f64, gamma: f64, n_updates: usize, initial_state: S) -> Self {
         let dim = fa_theta.weights_dim();
 
         iLSTD {
@@ -37,11 +39,13 @@ impl<F: Parameterised> iLSTD<F> {
 
             a: Array2::eye(dim[0]),
             mu: Array1::zeros(dim[0]),
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<F: Parameterised> iLSTD<F> {
+impl<S, F: Parameterised> iLSTD<S, F> {
     fn solve(&mut self) {
         let mut w = self.fa_theta.weights_view_mut();
 
@@ -60,15 +64,16 @@ impl<F: Parameterised> iLSTD<F> {
     }
 }
 
-impl<S, A, F> OnlineLearner<S, A> for iLSTD<F>
+impl<S, A, F> OnlineLearner<S, A> for iLSTD<S, F>
 where
     F: LinearStateFunction<S, Output = f64>
 {
     fn handle_transition(&mut self, t: &Transition<S, A>) {
-        let (s, ns) = t.states();
+        // let (s, ns) = t.states();
+        let ns = t.to.state();
 
         // (D x 1)
-        let phi_s = self.fa_theta.features(s).expanded();
+        let phi_s = self.fa_theta.features(&self.prior_state).expanded();
 
         self.mu.scaled_add(t.reward, &phi_s);
 
@@ -94,10 +99,12 @@ where
         };
 
         self.solve();
+
+        self.prior_state = t.to.owned_state();
     }
 }
 
-impl<S, F> ValuePredictor<S> for iLSTD<F>
+impl<S, F> ValuePredictor<S> for iLSTD<S, F>
 where
     F: StateFunction<S, Output = f64>
 {

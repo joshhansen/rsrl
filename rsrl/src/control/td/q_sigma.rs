@@ -86,6 +86,8 @@ pub struct QSigma<S, Q, P> {
     pub sigma: f64,
 
     backup: Backup<S>,
+
+    prior_state: S,
 }
 
 impl<S, Q, P> QSigma<S, Shared<Q>, P> {
@@ -96,6 +98,7 @@ impl<S, Q, P> QSigma<S, Shared<Q>, P> {
         gamma: f64,
         sigma: f64,
         n_steps: usize,
+        initial_state: S,
     ) -> Self {
         let q_func = make_shared(q_func);
 
@@ -110,6 +113,8 @@ impl<S, Q, P> QSigma<S, Shared<Q>, P> {
             sigma,
 
             backup: Backup::new(n_steps),
+
+            prior_state: initial_state,
         }
     }
 }
@@ -139,12 +144,12 @@ where
     P: EnumerablePolicy<S>,
 {
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
-        let s = t.from.state();
-        let qa = self.q_func.evaluate(s, &t.action);
+        // let s = t.from.state();
+        let qa = self.q_func.evaluate(&self.prior_state, &t.action);
 
         if t.terminated() {
             self.update_backup(BackupEntry {
-                s: s.clone(),
+                s: self.prior_state.clone(),
                 a: t.action,
 
                 q: qa,
@@ -170,7 +175,7 @@ where
                 t.reward + self.gamma * (self.sigma * nqs[na] + (1.0 - self.sigma) * exp_nqs) - qa;
 
             self.update_backup(BackupEntry {
-                s: s.clone(),
+                s: self.prior_state.clone(),
                 a: t.action,
 
                 q: qa,
@@ -181,6 +186,8 @@ where
                 mu: mu,
             });
         };
+
+        self.prior_state = t.to.owned_state();
     }
 
     fn handle_terminal(&mut self) {

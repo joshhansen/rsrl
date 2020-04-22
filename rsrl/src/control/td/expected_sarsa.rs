@@ -21,34 +21,38 @@ use rand::Rng;
 /// IEEE Symposium on Adaptive Dynamic Programming and Reinforcement Learning,
 /// pp. 177–184.
 #[derive(Parameterised)]
-pub struct ExpectedSARSA<Q, P> {
+pub struct ExpectedSARSA<S, Q, P> {
     #[weights] pub q_func: Q,
     pub policy: P,
 
     pub alpha: f64,
     pub gamma: f64,
+
+    prior_state: S,
 }
 
-impl<Q, P> ExpectedSARSA<Q, P> {
-    pub fn new(q_func: Q, policy: P, alpha: f64, gamma: f64) -> Self {
+impl<S, Q, P> ExpectedSARSA<S, Q, P> {
+    pub fn new(q_func: Q, policy: P, alpha: f64, gamma: f64, initial_state: S) -> Self {
         ExpectedSARSA {
             q_func,
             policy,
 
             alpha,
             gamma,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, Q, P> OnlineLearner<S, P::Action> for ExpectedSARSA<Q, P>
+impl<S, Q, P> OnlineLearner<S, P::Action> for ExpectedSARSA<S, Q, P>
 where
     Q: EnumerableStateActionFunction<S>,
     P: EnumerablePolicy<S>,
 {
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
-        let s = t.from.state();
-        let qsa = self.predict_q(s, &t.action);
+        // let s = t.from.state();
+        let qsa = self.predict_q(&self.prior_state, &t.action);
         let residual = if t.terminated() {
             t.reward - qsa
         } else {
@@ -58,11 +62,13 @@ where
             t.reward + self.gamma * exp_nv - qsa
         };
 
-        self.q_func.update(s, &t.action, self.alpha * residual);
+        self.q_func.update(&self.prior_state, &t.action, self.alpha * residual);
+
+        self.prior_state = t.to.owned_state();
     }
 }
 
-impl<S, Q, P: Policy<S>> Controller<S, P::Action> for ExpectedSARSA<Q, P> {
+impl<S, Q, P: Policy<S>> Controller<S, P::Action> for ExpectedSARSA<S, Q, P> {
     fn sample_target(&self, rng: &mut impl Rng, s: &S) -> P::Action {
         self.policy.sample(rng, s)
     }
@@ -72,7 +78,7 @@ impl<S, Q, P: Policy<S>> Controller<S, P::Action> for ExpectedSARSA<Q, P> {
     }
 }
 
-impl<S, Q, P> ValuePredictor<S> for ExpectedSARSA<Q, P>
+impl<S, Q, P> ValuePredictor<S> for ExpectedSARSA<S, Q, P>
 where
     Q: EnumerableStateActionFunction<S>,
     P: EnumerablePolicy<S>,
@@ -84,7 +90,7 @@ where
     }
 }
 
-impl<S, Q, P> ActionValuePredictor<S, P::Action> for ExpectedSARSA<Q, P>
+impl<S, Q, P> ActionValuePredictor<S, P::Action> for ExpectedSARSA<S, Q, P>
 where
     Q: StateActionFunction<S, P::Action, Output = f64>,
     P: Policy<S>,

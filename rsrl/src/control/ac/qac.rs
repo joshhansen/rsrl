@@ -9,39 +9,43 @@ use rand::Rng;
 
 /// Action-value actor-critic.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct QAC<C, P> {
+pub struct QAC<S, C, P> {
     pub critic: C,
     pub policy: P,
 
     pub alpha: f64,
+
+    prior_state: S,
 }
 
-impl<C, P> QAC<C, P> {
-    pub fn new(critic: C, policy: P, alpha: f64) -> Self {
+impl<S, C, P> QAC<S, C, P> {
+    pub fn new(critic: C, policy: P, alpha: f64, initial_state: S) -> Self {
         QAC {
             critic,
             policy,
 
             alpha,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<C, P> QAC<C, P> {
-    pub fn update_policy<S>(&mut self, t: &Transition<S, P::Action>)
+impl<S, C, P> QAC<S, C, P> {
+    pub fn update_policy(&mut self, t: &Transition<S, P::Action>)
     where
         C: OnlineLearner<S, P::Action> + ActionValuePredictor<S, P::Action>,
         P: DifferentiablePolicy<S>,
         P::Action: Clone,
     {
-        let s = t.from.state();
-        let qsa = self.critic.predict_q(s, &t.action);
+        // let s = t.from.state();
+        let qsa = self.critic.predict_q(&self.prior_state, &t.action);
 
-        self.policy.update(s, &t.action, self.alpha * qsa);
+        self.policy.update(&self.prior_state, &t.action, self.alpha * qsa);
     }
 }
 
-impl<S, C, P> OnlineLearner<S, P::Action> for QAC<C, P>
+impl<S, C, P> OnlineLearner<S, P::Action> for QAC<S, C, P>
 where
     C: OnlineLearner<S, P::Action> + ActionValuePredictor<S, P::Action>,
     P: DifferentiablePolicy<S>,
@@ -51,6 +55,8 @@ where
         self.critic.handle_transition(t);
 
         self.update_policy(t);
+
+        self.prior_state = t.to.owned_state();
     }
 
     fn handle_terminal(&mut self) {
@@ -58,7 +64,7 @@ where
     }
 }
 
-impl<S, C, P> ValuePredictor<S> for QAC<C, P>
+impl<S, C, P> ValuePredictor<S> for QAC<S, C, P>
 where
     C: ValuePredictor<S>,
 {
@@ -67,7 +73,7 @@ where
     }
 }
 
-impl<S, C, P> ActionValuePredictor<S, P::Action> for QAC<C, P>
+impl<S, C, P> ActionValuePredictor<S, P::Action> for QAC<S, C, P>
 where
     C: ActionValuePredictor<S, P::Action>,
     P: Policy<S>,
@@ -77,7 +83,7 @@ where
     }
 }
 
-impl<S, C, P> Controller<S, P::Action> for QAC<C, P>
+impl<S, C, P> Controller<S, P::Action> for QAC<S, C, P>
 where
     P: Policy<S>,
 {

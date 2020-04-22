@@ -26,7 +26,7 @@ use rand::{thread_rng, Rng};
 /// Sutton, R. S. (2016). True online temporal-difference learning. Journal of
 /// Machine Learning Research, 17(145), 1-40.](https://arxiv.org/pdf/1512.04087.pdf)
 #[derive(Parameterised)]
-pub struct TOSARSALambda<F, P, T> {
+pub struct TOSARSALambda<S, F, P, T> {
     #[weights] pub fa_theta: F,
     pub policy: P,
 
@@ -36,9 +36,11 @@ pub struct TOSARSALambda<F, P, T> {
 
     trace: T,
     q_old: f64,
+
+    prior_state: S,
 }
 
-impl<F, P, T> TOSARSALambda<F, P, T> {
+impl<S, F, P, T> TOSARSALambda<S, F, P, T> {
     pub fn new(
         fa_theta: F,
         policy: P,
@@ -46,6 +48,7 @@ impl<F, P, T> TOSARSALambda<F, P, T> {
         alpha: f64,
         gamma: f64,
         lambda: f64,
+        initial_state: S,
     ) -> Self {
         TOSARSALambda {
             fa_theta,
@@ -57,22 +60,24 @@ impl<F, P, T> TOSARSALambda<F, P, T> {
 
             trace,
             q_old: 0.0,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, F, P, T> OnlineLearner<S, P::Action> for TOSARSALambda<F, P, T>
+impl<S, F, P, T> OnlineLearner<S, P::Action> for TOSARSALambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S> + LinearStateActionFunction<S, usize>,
     P: EnumerablePolicy<S>,
     T: Trace<F::Gradient>,
 {
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
-        let s = t.from.state();
-        let qsa = self.fa_theta.evaluate(s, &t.action);
+        // let s = t.from.state();
+        let qsa = self.fa_theta.evaluate(&self.prior_state, &t.action);
 
         // Update trace with latest feature vector:
-        let grad_sa = self.fa_theta.grad(s, &t.action);
+        let grad_sa = self.fa_theta.grad(&self.prior_state, &t.action);
         let phi_sa = grad_sa.features(&t.action).unwrap();
 
         {
@@ -113,6 +118,8 @@ where
 
             self.q_old = nqsna;
         };
+
+        self.prior_state = t.to.owned_state();
     }
 
     fn handle_terminal(&mut self) {
@@ -120,7 +127,7 @@ where
     }
 }
 
-impl<S, F, P: Policy<S>, T> Controller<S, P::Action> for TOSARSALambda<F, P, T> {
+impl<S, F, P: Policy<S>, T> Controller<S, P::Action> for TOSARSALambda<S, F, P, T> {
     fn sample_target(&self, rng: &mut impl Rng, s: &S) -> P::Action {
         self.policy.sample(rng, s)
     }
@@ -130,7 +137,7 @@ impl<S, F, P: Policy<S>, T> Controller<S, P::Action> for TOSARSALambda<F, P, T> 
     }
 }
 
-impl<S, F, P, T> ValuePredictor<S> for TOSARSALambda<F, P, T>
+impl<S, F, P, T> ValuePredictor<S> for TOSARSALambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S>,
     P: EnumerablePolicy<S>,
@@ -142,7 +149,7 @@ where
     }
 }
 
-impl<S, F, P, T> ActionValuePredictor<S, P::Action> for TOSARSALambda<F, P, T>
+impl<S, F, P, T> ActionValuePredictor<S, P::Action> for TOSARSALambda<S, F, P, T>
 where
     F: StateActionFunction<S, P::Action, Output = f64>,
     P: Policy<S>,

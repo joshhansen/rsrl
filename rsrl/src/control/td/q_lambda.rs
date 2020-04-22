@@ -21,7 +21,7 @@ use rand::Rng;
 /// - Watkins, C. J. C. H., Dayan, P. (1992). Q-learning. Machine Learning,
 /// 8:279–292.
 #[derive(Parameterised, Serialize, Deserialize)]
-pub struct QLambda<F, P, T> {
+pub struct QLambda<S, F, P, T> {
     #[weights] pub fa_theta: F,
 
     pub policy: P,
@@ -31,9 +31,11 @@ pub struct QLambda<F, P, T> {
     pub lambda: f64,
 
     trace: T,
+
+    prior_state: S,
 }
 
-impl<F, P, T> QLambda<Shared<F>, P, T> {
+impl<S, F, P, T> QLambda<S, Shared<F>, P, T> {
     pub fn new(
         fa_theta: F,
         policy: P,
@@ -41,6 +43,7 @@ impl<F, P, T> QLambda<Shared<F>, P, T> {
         alpha: f64,
         gamma: f64,
         lambda: f64,
+        initial_state: S,
     ) -> Self {
         let fa_theta = make_shared(fa_theta);
 
@@ -54,27 +57,29 @@ impl<F, P, T> QLambda<Shared<F>, P, T> {
             lambda,
 
             trace,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, F, P, T> OnlineLearner<S, P::Action> for QLambda<F, P, T>
+impl<S, F, P, T> OnlineLearner<S, P::Action> for QLambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S> + DifferentiableStateActionFunction<S, usize>,
     P: EnumerablePolicy<S>,
     T: Trace<F::Gradient>,
 {
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
-        let s = t.from.state();
-        let qsa = self.fa_theta.evaluate(s, &t.action);
+        // let s = t.from.state();
+        let qsa = self.fa_theta.evaluate(&self.prior_state, &t.action);
 
         // Update trace:
-        self.trace.scale(if t.action == self.fa_theta.find_max(s).0 {
+        self.trace.scale(if t.action == self.fa_theta.find_max(&self.prior_state).0 {
             self.lambda * self.gamma
         } else {
             0.0
         });
-        self.trace.update(&self.fa_theta.grad(s, &t.action));
+        self.trace.update(&self.fa_theta.grad(&self.prior_state, &t.action));
 
         // Update weight vectors:
         if t.terminated() {
@@ -87,10 +92,12 @@ where
 
             self.fa_theta.update_grad_scaled(self.trace.deref(), self.alpha * residual);
         }
+
+        self.prior_state = t.to.owned_state();
     }
 }
 
-impl<S, F, P, T> Controller<S, P::Action> for QLambda<F, P, T>
+impl<S, F, P, T> Controller<S, P::Action> for QLambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S, Output = f64>,
     P: EnumerablePolicy<S>,
@@ -104,7 +111,7 @@ where
     }
 }
 
-impl<S, F, P, T> ValuePredictor<S> for QLambda<F, P, T>
+impl<S, F, P, T> ValuePredictor<S> for QLambda<S, F, P, T>
 where
     F: EnumerableStateActionFunction<S, Output = f64>,
     P: Policy<S>,
@@ -112,7 +119,7 @@ where
     fn predict_v(&self, s: &S) -> f64 { self.fa_theta.find_max(s).1 }
 }
 
-impl<S, F, P, T> ActionValuePredictor<S, P::Action> for QLambda<F, P, T>
+impl<S, F, P, T> ActionValuePredictor<S, P::Action> for QLambda<S, F, P, T>
 where
     F: StateActionFunction<S, P::Action, Output = f64>,
     P: Policy<S>,

@@ -23,7 +23,7 @@ use rand::{thread_rng, Rng};
 /// - Singh, S. P., Sutton, R. S. (1996). Reinforcement learning with replacing
 /// eligibility traces. Machine Learning 22:123–158.
 #[derive(Parameterised, Serialize, Deserialize)]
-pub struct SARSALambda<F, P, T> {
+pub struct SARSALambda<S, F, P, T> {
     #[weights] pub fa_theta: F,
     pub policy: P,
 
@@ -32,9 +32,11 @@ pub struct SARSALambda<F, P, T> {
     pub lambda: f64,
 
     trace: T,
+
+    prior_state: S,
 }
 
-impl<F, P, T> SARSALambda<F, P, T> {
+impl<S, F, P, T> SARSALambda<S, F, P, T> {
     pub fn new(
         fa_theta: F,
         policy: P,
@@ -42,6 +44,7 @@ impl<F, P, T> SARSALambda<F, P, T> {
         alpha: f64,
         gamma: f64,
         lambda: f64,
+        initial_state: S,
     ) -> Self {
         SARSALambda {
             fa_theta,
@@ -52,23 +55,25 @@ impl<F, P, T> SARSALambda<F, P, T> {
             lambda,
 
             trace,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, Q, P, T> OnlineLearner<S, P::Action> for SARSALambda<Q, P, T>
+impl<S, Q, P, T> OnlineLearner<S, P::Action> for SARSALambda<S, Q, P, T>
 where
     Q: DifferentiableStateActionFunction<S, P::Action, Output = f64>,
     P: Policy<S>,
     T: Trace<Q::Gradient>,
 {
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
-        let s = t.from.state();
-        let qsa = self.fa_theta.evaluate(s, &t.action);
+        // let s = t.from.state();
+        let qsa = self.fa_theta.evaluate(&self.prior_state, &t.action);
 
         // Update trace with latest feature vector:
         self.trace.scale(self.lambda * self.gamma);
-        self.trace.update(&self.fa_theta.grad(s, &t.action));
+        self.trace.update(&self.fa_theta.grad(&self.prior_state, &t.action));
 
         // Update weight vectors:
         if t.terminated() {
@@ -82,10 +87,12 @@ where
 
             self.fa_theta.update_grad_scaled(self.trace.deref(), self.alpha * residual);
         };
+
+        self.prior_state = t.to.owned_state();
     }
 }
 
-impl<S, F, P: Policy<S>, T> Controller<S, P::Action> for SARSALambda<F, P, T> {
+impl<S, F, P: Policy<S>, T> Controller<S, P::Action> for SARSALambda<S, F, P, T> {
     fn sample_target(&self, rng: &mut impl Rng, s: &S) -> P::Action {
         self.policy.sample(rng, s)
     }
@@ -95,7 +102,7 @@ impl<S, F, P: Policy<S>, T> Controller<S, P::Action> for SARSALambda<F, P, T> {
     }
 }
 
-impl<S, F, P, T> ValuePredictor<S> for SARSALambda<F, P, T>
+impl<S, F, P, T> ValuePredictor<S> for SARSALambda<S, F, P, T>
 where
     F: StateActionFunction<S, P::Action, Output = f64>,
     P: Policy<S>,
@@ -105,7 +112,7 @@ where
     }
 }
 
-impl<S, F, P, T> ActionValuePredictor<S, P::Action> for SARSALambda<F, P, T>
+impl<S, F, P, T> ActionValuePredictor<S, P::Action> for SARSALambda<S, F, P, T>
 where
     F: StateActionFunction<S, P::Action, Output = f64>,
     P: Policy<S>,

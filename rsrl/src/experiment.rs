@@ -150,14 +150,16 @@ where
             e.steps = j;
             e.reward += t.reward;
 
+            let terminated = t.terminated();
+
             self.agent.handle_transition(&t);
 
-            if t.terminated() || j >= self.step_limit {
+            if terminated || j >= self.step_limit {
                 self.agent.handle_terminal();
 
                 break
             } else {
-                a = self.agent.sample_behaviour(&mut rng, t.to.state());
+                a = self.agent.sample_behaviour(&mut rng, self.agent.state());
             }
         }
 

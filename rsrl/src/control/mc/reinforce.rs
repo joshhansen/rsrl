@@ -8,25 +8,29 @@ use crate::{
 use rand::Rng;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Parameterised)]
-pub struct REINFORCE<P> {
+pub struct REINFORCE<S, P> {
     #[weights] pub policy: P,
 
     pub alpha: f64,
     pub gamma: f64,
+
+    prior_state: S,
 }
 
-impl<P> REINFORCE<P> {
-    pub fn new(policy: P, alpha: f64, gamma: f64) -> Self {
+impl<S, P> REINFORCE<S, P> {
+    pub fn new(policy: P, alpha: f64, gamma: f64, initial_state: S) -> Self {
         REINFORCE {
             policy,
 
             alpha,
             gamma,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<S, P> BatchLearner<S, P::Action> for REINFORCE<P>
+impl<S, P> BatchLearner<S, P::Action> for REINFORCE<S, P>
 where
     P: DifferentiablePolicy<S>,
     P::Action: Clone,
@@ -39,15 +43,18 @@ where
             ret = t.reward + self.gamma * ret;
 
             self.policy.update(
-                t.from.state(),
+                // t.from.state(),
+                &self.prior_state,
                 &t.action,
                 self.alpha * ret / z
             );
+
+            self.prior_state = t.to.owned_state();
         }
     }
 }
 
-impl<S, P: Policy<S>> Controller<S, P::Action> for REINFORCE<P> {
+impl<S, P: Policy<S>> Controller<S, P::Action> for REINFORCE<S, P> {
     fn sample_target(&self, rng: &mut impl Rng, s: &S) -> P::Action {
         self.policy.sample(rng, s)
     }

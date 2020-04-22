@@ -42,10 +42,15 @@ pub mod traces;
 
 pub trait OnlineLearner<S, A> {
     /// Handle a single transition collected from the problem environment.
-    fn handle_transition(&mut self, transition: &domains::Transition<S, A>);
+    /// 
+    /// Return a reference to the state so the caller can keep working with it after the receiver takes ownership.
+    fn handle_transition(&mut self, transition: domains::Transition<S, A>);
 
     /// Perform housekeeping after terminal state observation.
     fn handle_terminal(&mut self) {}
+
+    /// The most recent state seen by the learner
+    fn state(&self) -> &S;
 }
 
 impl<S, A, T: OnlineLearner<S, A>> OnlineLearner<S, A> for Shared<T> {

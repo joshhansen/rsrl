@@ -14,7 +14,7 @@ use ndarray_linalg::Solve;
 use std::ops::MulAssign;
 
 #[derive(Parameterised)]
-pub struct LambdaLSPE<F> {
+pub struct LambdaLSPE<F, S> {
     #[weights] pub fa_theta: F,
 
     pub alpha: f64,
@@ -24,10 +24,12 @@ pub struct LambdaLSPE<F> {
     a: Array2<f64>,
     b: Array1<f64>,
     delta: f64,
+
+    prior_state: S,
 }
 
-impl<F: Parameterised> LambdaLSPE<F> {
-    pub fn new(fa_theta: F, alpha: f64, gamma: f64, lambda: f64) -> Self {
+impl<F: Parameterised, S> LambdaLSPE<F, S> {
+    pub fn new(fa_theta: F, alpha: f64, gamma: f64, lambda: f64, initial_state: S) -> Self {
         let dim = fa_theta.weights_dim();
 
         LambdaLSPE {
@@ -40,11 +42,13 @@ impl<F: Parameterised> LambdaLSPE<F> {
             a: Array2::eye(dim[0]) * 1e-6,
             b: Array1::zeros(dim[0]),
             delta: 0.0,
+
+            prior_state: initial_state,
         }
     }
 }
 
-impl<F: Parameterised> LambdaLSPE<F> {
+impl<F: Parameterised, S> LambdaLSPE<F, S> {
     fn solve(&mut self) {
         // First try the clean approach otherwise solve via SVD:
         if let Ok(theta) = self.a.solve(&self.b).or_else(|_| {
@@ -62,14 +66,16 @@ impl<F: Parameterised> LambdaLSPE<F> {
     }
 }
 
-impl<S, A, F> BatchLearner<S, A> for LambdaLSPE<F>
+impl<S, A, F> BatchLearner<S, A> for LambdaLSPE<F, S>
 where
     F: LinearStateFunction<S, Output = f64>,
 {
     fn handle_batch(&mut self, batch: &[Transition<S, A>]) {
         batch.into_iter().rev().for_each(|ref t| {
-            let (s, ns) = t.states();
-            let phi_s = self.fa_theta.features(s);
+            // let (s, ns) = t.states();
+            let ns = t.to.state();
+
+            let phi_s = self.fa_theta.features(&self.prior_state);
 
             self.delta *= self.gamma * self.lambda;
 
@@ -94,13 +100,15 @@ where
                     &phi_s.view().insert_axis(Axis(1))
                     .dot(&(phi_s.view().insert_axis(Axis(0))));
             };
+
+            self.prior_state = t.to.owned_state();
         });
 
         self.solve();
     }
 }
 
-impl<S, F> ValuePredictor<S> for LambdaLSPE<F>
+impl<S, F> ValuePredictor<S> for LambdaLSPE<F, S>
 where
     F: StateFunction<S, Output = f64>
 {
