@@ -117,7 +117,7 @@ impl<S> Observation<S> {
 #[derive(Clone, Copy, Debug)]
 pub struct Transition<S, A> {
     /// State transitioned _from_, `s`.
-    pub from: Observation<S>,
+    // pub from: Observation<S>,
 
     /// Action taken to initiate the transition (control tasks).
     pub action: A,
@@ -132,13 +132,14 @@ pub struct Transition<S, A> {
 impl<S, A> Transition<S, A> {
     /// Return references to the `from` and `to` states associated with this
     /// transition.
-    pub fn states(&self) -> (&S, &S) { (self.from.state(), self.to.state()) }
+    // pub fn states(&self) -> (&S, &S) { (self.from.state(), self.to.state()) }
+    pub fn state(&self) -> &S { self.to.state() }
 
     /// Apply a closure to the `from` and `to` states associated with this
     /// transition.
     pub fn map_states<O>(self, f: impl Fn(&S) -> O) -> Transition<O, A> {
         Transition {
-            from: self.from.map(&f),
+            // from: self.from.map(&f),
             action: self.action,
             reward: self.reward,
             to: self.to.map(f),
@@ -152,7 +153,7 @@ impl<S, A> Transition<S, A> {
     /// instance.
     pub fn replace_action<T>(self, action: T) -> Transition<S, T> {
         Transition {
-            from: self.from,
+            // from: self.from,
             action: action,
             reward: self.reward,
             to: self.to,
@@ -165,7 +166,7 @@ impl<S, A> Transition<S, A> {
 
     pub fn negate_reward(self) -> Transition<S, A> {
         Transition {
-            from: self.from,
+            // from: self.from,
             action: self.action,
             reward: -self.reward,
             to: self.to,

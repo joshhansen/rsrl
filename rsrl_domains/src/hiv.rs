@@ -113,14 +113,14 @@ impl Domain for HIVTreatment {
     }
 
     fn step(&mut self, action: usize) -> Transition<Vec<f64>, usize> {
-        let from = self.emit();
+        // let from = self.emit();
 
         self.update_state(action);
 
         let to = self.emit();
 
         Transition {
-            from,
+            // from,
             action,
             reward: to.map_into(|s| {
                 let r = 1e3 * s[StateIndex::E] - 0.1 * s[StateIndex::V] - 2e4 * self.eps[0].powi(2)

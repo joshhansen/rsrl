@@ -42,14 +42,14 @@ impl Domain for CliffWalk {
     }
 
     fn step(&mut self, action: usize) -> Transition<[usize; 2], usize> {
-        let from = self.emit();
+        // let from = self.emit();
 
         self.loc = self.gw.perform_motion(self.loc, ALL_ACTIONS[action]);
 
         let to = self.emit();
 
         Transition {
-            from,
+            // from,
             action,
             reward: match to {
                 Observation::Terminal(s) if s[0] == self.gw.width() - 1 => 50.0,

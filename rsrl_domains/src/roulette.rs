@@ -240,12 +240,12 @@ impl Domain for Roulette {
     }
 
     fn step(&mut self, action: usize) -> Transition<f64, usize> {
-        let from = self.emit();
+        // let from = self.emit();
 
         self.update_state(action);
 
         Transition {
-            from,
+            // from,
             action,
             reward: self.reward,
             to: self.emit(),

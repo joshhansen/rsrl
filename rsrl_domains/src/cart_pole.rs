@@ -104,14 +104,14 @@ impl Domain for CartPole {
     }
 
     fn step(&mut self, action: usize) -> Transition<Vec<f64>, usize> {
-        let from = self.emit();
+        // let from = self.emit();
 
         self.update_state(action);
 
         let to = self.emit();
 
         Transition {
-            from,
+            // from,
             action,
             reward: if to.is_terminal() { REWARD_TERMINAL } else { REWARD_STEP },
             to,
