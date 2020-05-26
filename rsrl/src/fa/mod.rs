@@ -1,4 +1,9 @@
 //! Function approximation and value function representation module.
+use std::ops::{
+    Mul,
+    Sub,
+};
+
 #[cfg(test)]
 pub(crate) mod mocking;
 
@@ -37,11 +42,30 @@ pub trait DifferentiableStateFunction<X: ?Sized>: StateFunction<X> + Parameteris
 
 /// An interface for state-action value functions.
 pub trait StateActionFunction<X: ?Sized, U: ?Sized> {
-    type Output;
+    type Output : Mul<Output=Self::Output>+Sub<Output=Self::Output>;
 
     fn evaluate(&self, state: &X, action: &U) -> Self::Output;
 
-    fn update(&mut self, state: &X, action: &U, error: Self::Output);
+    /// Update the function by giving a precomputed error.
+    ///
+    /// This is the raw error and not scale by learning rate.
+    ///
+    /// This is the default mode. Implementors can override `update` to circumvent the call to
+    /// this method.
+    fn update_by_error(&mut self, state: &X, action: &U, error: Self::Output);
+
+    /// Update the function by giving the observed value and estimated value of a state-action pair
+    ///
+    /// This default implementation computes an estimated value of the state-action pair by calling
+    /// `evaluate`. An error is then calculated and passed to `update_by_error`.
+    ///
+    /// Those wishing to do their own error calculation and their own value estimation---for example,
+    /// as part of the forward pass of a neural network---should implement this method directly,
+    /// in which case `update_by_error` will never be called
+    fn update(&mut self, state: &X, action: &U, value: Self::Output, estimate: Self::Output, learning_rate: Self::Output) {
+        let error = learning_rate * (value - estimate);
+        self.update_by_error(state, action, error);
+    }
 }
 
 pub trait DifferentiableStateActionFunction<X: ?Sized, U: ?Sized>:

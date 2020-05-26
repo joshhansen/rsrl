@@ -32,8 +32,8 @@ impl<X: ?Sized, U: ?Sized, T: StateActionFunction<X, U>> StateActionFunction<X, 
         self.borrow().evaluate(state, action)
     }
 
-    fn update(&mut self, state: &X, action: &U, error: Self::Output) {
-        self.borrow_mut().update(state, action, error)
+    fn update_by_error(&mut self, state: &X, action: &U, error: Self::Output) {
+        self.borrow_mut().update_by_error(state, action, error)
     }
 }
 

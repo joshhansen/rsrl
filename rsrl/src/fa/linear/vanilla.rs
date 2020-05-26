@@ -137,7 +137,7 @@ where
         self.approximator.evaluate_index(&features, *action).unwrap()
     }
 
-    fn update(&mut self, state: &X, action: &usize, error: Self::Output) {
+    fn update_by_error(&mut self, state: &X, action: &usize, error: Self::Output) {
         let features = self.basis.project(state.deref_slice()).unwrap();
 
         self.approximator.update_index(&mut self.optimiser, &features, *action, error).ok();

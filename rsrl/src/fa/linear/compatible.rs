@@ -45,7 +45,7 @@ where
         self.approximator.evaluate(&features).unwrap()
     }
 
-    fn update(&mut self, state: &X, action: &U, error: Self::Output) {
+    fn update_by_error(&mut self, state: &X, action: &U, error: Self::Output) {
         let features = self.features(state, action);
 
         self.approximator.update(&mut self.optimiser, &features, error).ok();
@@ -168,7 +168,7 @@ where
         self.approximator.evaluate(&features).unwrap()
     }
 
-    fn update(&mut self, state: &X, action: &U, error: Self::Output) {
+    fn update_by_error(&mut self, state: &X, action: &U, error: Self::Output) {
         let features = self.features(state, action);
 
         self.approximator.update(&mut self.optimiser, &features, error).ok();

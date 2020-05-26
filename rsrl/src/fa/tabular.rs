@@ -17,7 +17,7 @@ impl StateActionFunction<usize, usize> for Tabular {
 
     fn evaluate(&self, state: &usize, action: &usize) -> f64 { self.0[*action][*state] }
 
-    fn update(&mut self, state: &usize, action: &usize, error: f64) {
+    fn update_by_error(&mut self, state: &usize, action: &usize, error: f64) {
         *self.0.index_mut(*action).index_mut(*state) += error;
     }
 }

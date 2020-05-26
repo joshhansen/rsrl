@@ -52,16 +52,16 @@ where
         let s = t.from.state();
         let qsa = self.q_func.evaluate(s, &t.action);
 
-        let residual = if t.terminated() {
-            t.reward - qsa
+        let actual = if t.terminated() {
+            t.reward
         } else {
             let ns = t.to.state();
             let (_, nqsna) = self.q_func.find_max(ns);
 
-            t.reward + self.gamma * nqsna - qsa
+            t.reward + self.gamma * nqsna
         };
 
-        self.q_func.update(s, &t.action, self.alpha * residual);
+        self.q_func.update(s, &t.action, actual, qsa, self.alpha);
     }
 }
 

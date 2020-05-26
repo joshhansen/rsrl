@@ -49,16 +49,17 @@ where
     fn handle_transition(&mut self, t: &Transition<S, P::Action>) {
         let s = t.from.state();
         let qsa = self.predict_q(s, &t.action);
-        let residual = if t.terminated() {
-            t.reward - qsa
+
+        let actual = if t.terminated() {
+            t.reward
         } else {
             let ns = t.to.state();
             let exp_nv = self.predict_v(ns);
 
-            t.reward + self.gamma * exp_nv - qsa
+            t.reward + self.gamma * exp_nv
         };
 
-        self.q_func.update(s, &t.action, self.alpha * residual);
+        self.q_func.update(s, &t.action, actual, qsa, self.alpha);
     }
 }
 

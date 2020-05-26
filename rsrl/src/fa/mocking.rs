@@ -34,7 +34,7 @@ impl StateActionFunction<Vec<f64>, usize> for MockQ {
         }
     }
 
-    fn update(&mut self, _: &Vec<f64>, _: &usize, _: f64) {}
+    fn update_by_error(&mut self, _: &Vec<f64>, _: &usize, _: f64) {}
 }
 
 impl EnumerableStateActionFunction<Vec<f64>> for MockQ {
