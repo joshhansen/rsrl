@@ -126,7 +126,7 @@ impl<S, Q: EnumerableStateActionFunction<S>, P> QSigma<S, Q, P> {
 
             self.q_func.update(
                 &anchor.s, &anchor.a,
-                self.alpha * isr * (g - qsa),
+                g, qsa, self.alpha * isr
             );
         }
     }
