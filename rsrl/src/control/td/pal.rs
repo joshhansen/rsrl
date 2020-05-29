@@ -67,7 +67,9 @@ where
             al_error.max(td_error - self.alpha * (nqs[na_star] - nqs[t.action]))
         };
 
-        self.q_func.update(s, &t.action, actual, estimate, self.alpha);
+        // self.q_func.update(s, &t.action, actual, estimate, self.alpha);
+        //FIXME
+        unimplemented!()
     }
 }
 
