@@ -42,17 +42,20 @@ pub trait DifferentiableStateFunction<X: ?Sized>: StateFunction<X> + Parameteris
 
 /// An interface for state-action value functions.
 pub trait StateActionFunction<X: ?Sized, U: ?Sized> {
-    type Output : Mul<Output=Self::Output>+Sub<Output=Self::Output>;
+    type Output : Copy+Mul<Output=Self::Output>+Sub<Output=Self::Output>;
 
     fn evaluate(&self, state: &X, action: &U) -> Self::Output;
 
-    /// Update the function by giving a precomputed error.
-    ///
-    /// This is the raw error and not scale by learning rate.
-    ///
-    /// This is the default mode. Implementors can override `update` to circumvent the call to
-    /// this method.
-    fn update_by_error(&mut self, state: &X, action: &U, error: Self::Output);
+    // /// Update the function by giving a precomputed error.
+    // ///
+    // /// This is the raw error and not scale by learning rate.
+    // ///
+    // /// This is the default mode. Implementors can override `update` to circumvent the call to
+    // /// this method.
+    // fn update_by_error(&mut self, state: &X, action: &U, error: Self::Output);
+
+    fn update_with_error(&mut self, state: &X, action: &U, value: Self::Output, estimate: Self::Output,
+        error: Self::Output, raw_error: Self::Output, learning_rate: Self::Output);
 
     /// Update the function by giving the observed value and estimated value of a state-action pair
     ///
@@ -63,8 +66,9 @@ pub trait StateActionFunction<X: ?Sized, U: ?Sized> {
     /// as part of the forward pass of a neural network---should implement this method directly,
     /// in which case `update_by_error` will never be called
     fn update(&mut self, state: &X, action: &U, value: Self::Output, estimate: Self::Output, learning_rate: Self::Output) {
-        let error = learning_rate * (value - estimate);
-        self.update_by_error(state, action, error);
+        let raw_error = value - estimate;
+        let error = learning_rate * raw_error;
+        self.update_with_error(state, action, value, estimate, error, raw_error, learning_rate);
     }
 }
 
@@ -91,14 +95,21 @@ pub trait EnumerableStateActionFunction<X: ?Sized>:
 
     fn evaluate_all(&self, state: &X) -> Vec<f64>;
 
-    fn update_all_by_errors(&mut self, state: &X, errors: Vec<f64>);
+    // fn update_all_with_errors(&mut self, state: &X, errors: Vec<f64>);
 
+    fn update_all_with_errors(&mut self, state: &X, values: Vec<Self::Output>, estimates: Vec<Self::Output>,
+        errors: Vec<Self::Output>, raw_errors: Vec<Self::Output>, learning_rate: Self::Output);
+            
     fn update_all(&mut self, state: &X, values: Vec<f64>, estimates: Vec<f64>, learning_rate: f64) {
+        let mut raw_errors: Vec<f64> = Vec::with_capacity(values.len());
         let mut errors: Vec<f64> = Vec::with_capacity(values.len());
         for (i, value) in values.iter().enumerate() {
-            errors.push(learning_rate * (*value - estimates[i]));
+            let raw_error = *value - estimates[i];
+            let error = learning_rate * raw_error;
+            raw_errors.push(raw_error);
+            errors.push(error);
         }
-        self.update_all_by_errors(state, errors);
+        self.update_all_with_errors(state, values, estimates, errors, raw_errors, learning_rate);
     }
 
     fn find_min(&self, state: &X) -> (usize, f64) {

@@ -17,8 +17,10 @@ impl StateActionFunction<usize, usize> for Tabular {
 
     fn evaluate(&self, state: &usize, action: &usize) -> f64 { self.0[*action][*state] }
 
-    fn update_by_error(&mut self, state: &usize, action: &usize, error: f64) {
-        *self.0.index_mut(*action).index_mut(*state) += error;
+    fn update_with_error(&mut self, state: &usize, action: &usize, _value: Self::Output, _estimate: Self::Output,
+        error: Self::Output, _raw_error: Self::Output, _learning_rate: Self::Output) {
+
+            *self.0.index_mut(*action).index_mut(*state) += error;
     }
 }
 
@@ -27,7 +29,9 @@ impl EnumerableStateActionFunction<usize> for Tabular {
 
     fn evaluate_all(&self, state: &usize) -> Vec<f64> { self.0.iter().map(|c| c[*state]).collect() }
 
-    fn update_all_by_errors(&mut self, state: &usize, errors: Vec<f64>) {
+    fn update_all_with_errors(&mut self, state: &usize, _values: Vec<Self::Output>, _estimates: Vec<Self::Output>,
+        errors: Vec<Self::Output>, _raw_errors: Vec<Self::Output>, _learning_rate: Self::Output) {
+
         for (c, e) in self.0.iter_mut().zip(errors.into_iter()) {
             *c.index_mut(*state) += e;
         }

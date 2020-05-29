@@ -58,10 +58,10 @@ impl<B: Projector, O: Optimiser> LFA<B, O, VectorFunction> {
 // V(s):
 impl<X, B, O, A> StateFunction<X> for LFA<B, O, A>
 where
-    X: DerefVec,
-    B: Projector,
-    O: Optimiser,
-    A: Approximator,
+X: DerefVec,
+B: Projector,
+O: Optimiser,
+A: Approximator,
 {
     type Output = A::Output;
 
@@ -76,16 +76,16 @@ where
             &mut self.optimiser,
             &self.basis.project(&state.deref_vec()).unwrap(),
             error
-        ).ok();
+            ).ok();
     }
 }
 
 impl<X, B, O, A> DifferentiableStateFunction<X> for LFA<B, O, A>
 where
-    X: DerefVec,
-    B: Projector,
-    O: Optimiser,
-    A: ScalarApproximator,
+X: DerefVec,
+B: Projector,
+O: Optimiser,
+A: ScalarApproximator,
 {
     type Gradient = LFAGradient;
 
@@ -93,16 +93,16 @@ where
         LFAGradient::from_features(
             self.weights_dim(), 0,
             self.basis.project(&state.deref_vec()).unwrap()
-        )
+            )
     }
 }
 
 impl<X, B, O, A> LinearStateFunction<X> for LFA<B, O, A>
 where
-    X: DerefVec,
-    B: Projector,
-    O: Optimiser,
-    A: ScalarApproximator,
+X: DerefVec,
+B: Projector,
+O: Optimiser,
+A: ScalarApproximator,
 {
     fn n_features(&self) -> usize {
         self.basis.n_features()
@@ -124,10 +124,10 @@ where
 // Q(x, u):
 impl<X, B, O, A> StateActionFunction<X, usize> for LFA<B, O, A>
 where
-    X: DerefVec,
-    B: Projector,
-    O: Optimiser,
-    A: VectorApproximator,
+X: DerefVec,
+B: Projector,
+O: Optimiser,
+A: VectorApproximator,
 {
     type Output = f64;
 
@@ -137,7 +137,9 @@ where
         self.approximator.evaluate_index(&features, *action).unwrap()
     }
 
-    fn update_by_error(&mut self, state: &X, action: &usize, error: Self::Output) {
+    fn update_with_error(&mut self, state: &X, action: &usize, value: Self::Output, estimate: Self::Output,
+        error: Self::Output, raw_error: Self::Output, learning_rate: Self::Output) {
+
         let features = self.basis.project(&state.deref_vec()).unwrap();
 
         self.approximator.update_index(&mut self.optimiser, &features, *action, error).ok();
@@ -176,8 +178,9 @@ where
     fn evaluate_all(&self, state: &X) -> Vec<f64> {
         self.approximator.evaluate(&self.basis.project(&state.deref_vec()).unwrap()).unwrap()
     }
+    fn update_all_with_errors(&mut self, state: &X, values: Vec<Self::Output>, estimates: Vec<Self::Output>,
+        errors: Vec<Self::Output>, raw_errors: Vec<Self::Output>, learning_rate: Self::Output) {
 
-    fn update_all_by_errors(&mut self, state: &X, errors: Vec<f64>) {
         self.approximator.update(
             &mut self.optimiser,
             &self.basis.project(&state.deref_vec()).unwrap(),
