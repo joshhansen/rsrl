@@ -177,7 +177,7 @@ where
         self.approximator.evaluate(&self.basis.project(state.deref_slice()).unwrap()).unwrap()
     }
 
-    fn update_all(&mut self, state: &X, errors: Vec<f64>) {
+    fn update_all_by_errors(&mut self, state: &X, errors: Vec<f64>) {
         self.approximator.update(
             &mut self.optimiser,
             &self.basis.project(state.deref_slice()).unwrap(),

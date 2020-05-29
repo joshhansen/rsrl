@@ -59,8 +59,8 @@ impl<X: ?Sized, T: EnumerableStateActionFunction<X>> EnumerableStateActionFuncti
 
     fn evaluate_all(&self, state: &X) -> Vec<f64> { self.borrow().evaluate_all(state) }
 
-    fn update_all(&mut self, state: &X, errors: Vec<f64>) {
-        self.borrow_mut().update_all(state, errors)
+    fn update_all_by_errors(&mut self, state: &X, errors: Vec<f64>) {
+        self.borrow_mut().update_all_by_errors(state, errors)
     }
 }
 
