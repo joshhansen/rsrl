@@ -27,7 +27,7 @@ impl EnumerableStateActionFunction<usize> for Tabular {
 
     fn evaluate_all(&self, state: &usize) -> Vec<f64> { self.0.iter().map(|c| c[*state]).collect() }
 
-    fn update_all(&mut self, state: &usize, errors: Vec<f64>) {
+    fn update_all_by_errors(&mut self, state: &usize, errors: Vec<f64>) {
         for (c, e) in self.0.iter_mut().zip(errors.into_iter()) {
             *c.index_mut(*state) += e;
         }

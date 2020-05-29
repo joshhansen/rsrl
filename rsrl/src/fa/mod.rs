@@ -91,7 +91,15 @@ pub trait EnumerableStateActionFunction<X: ?Sized>:
 
     fn evaluate_all(&self, state: &X) -> Vec<f64>;
 
-    fn update_all(&mut self, state: &X, errors: Vec<f64>);
+    fn update_all_by_errors(&mut self, state: &X, errors: Vec<f64>);
+
+    fn update_all(&mut self, state: &X, values: Vec<f64>, estimates: Vec<f64>, learning_rate: f64) {
+        let mut errors: Vec<f64> = Vec::with_capacity(values.len());
+        for (i, value) in values.iter().enumerate() {
+            errors.push(learning_rate * (*value - estimates[i]));
+        }
+        self.update_all_by_errors(state, errors);
+    }
 
     fn find_min(&self, state: &X) -> (usize, f64) {
         let mut iter = self.evaluate_all(state).into_iter().enumerate();
