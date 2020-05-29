@@ -31,9 +31,10 @@ impl<X: ?Sized, U: ?Sized, T: StateActionFunction<X, U>> StateActionFunction<X, 
     fn evaluate(&self, state: &X, action: &U) -> Self::Output {
         self.borrow().evaluate(state, action)
     }
+    fn update_with_error(&mut self, state: &X, action: &U, value: Self::Output, estimate: Self::Output,
+        error: Self::Output, raw_error: Self::Output, learning_rate: Self::Output) {
 
-    fn update_by_error(&mut self, state: &X, action: &U, error: Self::Output) {
-        self.borrow_mut().update_by_error(state, action, error)
+        self.borrow_mut().update_with_error(state, action, value, estimate, error, raw_error, learning_rate);
     }
 }
 
@@ -59,8 +60,10 @@ impl<X: ?Sized, T: EnumerableStateActionFunction<X>> EnumerableStateActionFuncti
 
     fn evaluate_all(&self, state: &X) -> Vec<f64> { self.borrow().evaluate_all(state) }
 
-    fn update_all_by_errors(&mut self, state: &X, errors: Vec<f64>) {
-        self.borrow_mut().update_all_by_errors(state, errors)
+    fn update_all_with_errors(&mut self, state: &X, values: Vec<Self::Output>, estimates: Vec<Self::Output>,
+        errors: Vec<Self::Output>, raw_errors: Vec<Self::Output>, learning_rate: Self::Output) {
+
+        self.borrow_mut().update_all_with_errors(state, values, estimates, errors, raw_errors, learning_rate);
     }
 }
 

@@ -137,7 +137,9 @@ where
         self.approximator.evaluate_index(&features, *action).unwrap()
     }
 
-    fn update_by_error(&mut self, state: &X, action: &usize, error: Self::Output) {
+    fn update_with_error(&mut self, state: &X, action: &usize, value: Self::Output, estimate: Self::Output,
+        error: Self::Output, raw_error: Self::Output, learning_rate: Self::Output) {
+
         let features = self.basis.project(state.deref_slice()).unwrap();
 
         self.approximator.update_index(&mut self.optimiser, &features, *action, error).ok();
@@ -176,8 +178,9 @@ where
     fn evaluate_all(&self, state: &X) -> Vec<f64> {
         self.approximator.evaluate(&self.basis.project(state.deref_slice()).unwrap()).unwrap()
     }
+    fn update_all_with_errors(&mut self, state: &X, values: Vec<Self::Output>, estimates: Vec<Self::Output>,
+        errors: Vec<Self::Output>, raw_errors: Vec<Self::Output>, learning_rate: Self::Output) {
 
-    fn update_all_by_errors(&mut self, state: &X, errors: Vec<f64>) {
         self.approximator.update(
             &mut self.optimiser,
             &self.basis.project(state.deref_slice()).unwrap(),

@@ -34,7 +34,8 @@ impl StateActionFunction<Vec<f64>, usize> for MockQ {
         }
     }
 
-    fn update_by_error(&mut self, _: &Vec<f64>, _: &usize, _: f64) {}
+    fn update_with_error(&mut self, _: &Vec<f64>, _: &usize, _: Self::Output, _: Self::Output,
+        _: Self::Output, _: Self::Output, _: Self::Output) {}
 }
 
 impl EnumerableStateActionFunction<Vec<f64>> for MockQ {
@@ -52,5 +53,6 @@ impl EnumerableStateActionFunction<Vec<f64>> for MockQ {
         }
     }
 
-    fn update_all(&mut self, _: &Vec<f64>, _: Vec<f64>) {}
+    fn update_all_with_errors(&mut self, state: &Vec<f64>, values: Vec<Self::Output>, estimates: Vec<Self::Output>,
+        errors: Vec<Self::Output>, raw_errors: Vec<Self::Output>, learning_rate: Self::Output) {}
 }
